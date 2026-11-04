@@ -21,7 +21,7 @@ function uploadPdf(
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("pdf", file);
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", `${API_URL}/upload/pdf`);
@@ -29,8 +29,12 @@ function uploadPdf(
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
     };
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.responseText);
-      else reject(new Error(xhr.responseText || `Upload failed (${xhr.status})`));
+      let message = xhr.responseText;
+      try {
+        message = JSON.parse(xhr.responseText).message ?? message;
+      } catch {}
+      if (xhr.status >= 200 && xhr.status < 300) resolve(message);
+      else reject(new Error(message || `Upload failed (${xhr.status})`));
     };
     xhr.onerror = () =>
       reject(new Error(`Could not reach the server at ${API_URL}`));
