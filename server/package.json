@@ -11,8 +11,11 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
+    "bullmq": "^6.6.0",
     "cors": "^2.8.6",
     "express": "^5.3.0",
-    "multer": "^2.5.0"
+    "langchain": "^1.6.1",
+    "multer": "^2.5.0",
+    "valkey": "^1.0.1"
   }
 }
