@@ -4,7 +4,12 @@ import multer from "multer";
 import { Queue } from 'bullmq';
 
 const queueName = 'file-upload-queue';
-const queue = new Queue(queueName);
+const queue = new Queue(queueName, {
+  connection: {
+    host: process.env.REDIS_HOST ?? 'localhost',
+    port: Number(process.env.REDIS_PORT ?? 6379),
+  },
+});
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -32,13 +37,11 @@ app.post("/upload/pdf", upload.single("pdf"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded." });
   }
-  await queue.add('file-ready',
-    JSON.stringify({
-      filePath: req.file.path,
-      destination: req.file.destination,
-      path: req.file.path
-    })
-  );
+  await queue.add('file-ready', {
+    filename: req.file.originalname,
+    destination: req.file.destination,
+    path: req.file.path,
+  });
   return res.json({ message: "uploaded" });
 });
 
