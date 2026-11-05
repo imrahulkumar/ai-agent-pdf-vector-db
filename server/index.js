@@ -92,6 +92,12 @@ app.get("/chat", async (req, res) => {
       docs: results,
     });
   } catch (err) {
+    if (err?.status === 429) {
+      console.warn("Chat rate limited:", err.message);
+      return res.status(429).json({
+        message: "The AI model's quota is exhausted. Try again later or switch CHAT_MODEL in server/.env.",
+      });
+    }
     console.error("Chat failed:", err);
     return res.status(500).json({ message: err.message ?? "Chat failed." });
   }
