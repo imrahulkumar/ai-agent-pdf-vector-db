@@ -11,7 +11,7 @@ const COLLECTION_NAME = process.env.QDRANT_COLLECTION ?? "pdf-docs";
 
 const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-3-small",
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 const worker = new Worker(

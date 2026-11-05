@@ -37,7 +37,7 @@ app.post("/upload/pdf", upload.single("pdf"), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: "No file uploaded." });
   }
-  await queue.add('file-ready', {
+  await queue.add(queueName, {
     filename: req.file.originalname,
     destination: req.file.destination,
     path: req.file.path,
