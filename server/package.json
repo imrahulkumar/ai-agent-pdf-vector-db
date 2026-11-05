@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node --watch index.js",
-    "worker": "node --watch worker.js",
+    "start": "node --env-file-if-exists=.env --watch index.js",
+    "worker": "node --env-file-if-exists=.env --watch worker.js",
     "dev": "node --watch index.js && node --watch worker.js"
 
   },
@@ -20,6 +20,7 @@
     "@langchain/openai": "^1.8.0",
     "@langchain/qdrant": "^1.0.3",
     "@langchain/textsplitters": "^1.0.2",
+    "@qdrant/js-client-rest": "^1.18.0",
     "bullmq": "^6.6.0",
     "cors": "^2.8.6",
     "express": "^5.3.0",
