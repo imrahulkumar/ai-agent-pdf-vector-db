@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+type SourceDoc = {
+  pageContent: string;
+  metadata?: {
+    source?: string;
+    loc?: { pageNumber?: number };
+  };
+};
 
 type Message = {
   role: "user" | "assistant";
   text: string;
+  docs?: SourceDoc[];
+  error?: boolean;
 };
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3001";
@@ -42,6 +52,28 @@ function uploadPdf(
   });
 }
 
+async function sendChat(
+  message: string
+): Promise<{ message: string; docs: SourceDoc[] }> {
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}/chat?message=${encodeURIComponent(message)}`);
+  } catch {
+    throw new Error(`Could not reach the server at ${API_URL}`);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.message || `Chat failed (${res.status})`);
+  return { message: String(data.message ?? ""), docs: data.docs ?? [] };
+}
+
+function sourceLabel(doc: SourceDoc) {
+  const file = doc.metadata?.source?.split("/").pop() ?? "Unknown file";
+  // Strip the "<timestamp>-<random>-" prefix multer adds to uploaded files
+  const name = file.replace(/^\d+-\d+-/, "");
+  const page = doc.metadata?.loc?.pageNumber;
+  return page ? `${name} · p.${page}` : name;
+}
+
 export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<UploadStatus>({ state: "idle" });
@@ -49,13 +81,35 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const handleSend = (e: React.SyntheticEvent<HTMLFormElement>) => {
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, isSending]);
+
+  const handleSend = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     const text = input.trim();
-    if (!text) return;
+    if (!text || isSending) return;
     setMessages((prev) => [...prev, { role: "user", text }]);
     setInput("");
+    setIsSending(true);
+    try {
+      const { message, docs } = await sendChat(text);
+      setMessages((prev) => [...prev, { role: "assistant", text: message, docs }]);
+    } catch (err) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          text: err instanceof Error ? err.message : "Something went wrong.",
+          error: true,
+        },
+      ]);
+    } finally {
+      setIsSending(false);
+    }
   };
 
   const selectFile = (f: File | null) => {
@@ -205,17 +259,49 @@ export default function Home() {
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[70%] rounded-lg px-4 py-2 text-sm ${
+                  className={`max-w-[70%] rounded-lg px-4 py-2 text-sm whitespace-pre-wrap ${
                     m.role === "user"
                       ? "bg-purple-700 text-white"
-                      : "bg-zinc-100 dark:bg-zinc-800"
+                      : m.error
+                        ? "bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400"
+                        : "bg-zinc-100 dark:bg-zinc-800"
                   }`}
                 >
                   {m.text}
+                  {m.docs && m.docs.length > 0 && (
+                    <details className="mt-2 whitespace-normal">
+                      <summary className="cursor-pointer text-xs text-zinc-500">
+                        Sources ({m.docs.length})
+                      </summary>
+                      <ul className="mt-1 space-y-2">
+                        {m.docs.map((doc, j) => (
+                          <li
+                            key={j}
+                            className="rounded border border-zinc-200 dark:border-zinc-700 p-2 text-xs"
+                          >
+                            <p className="font-medium text-zinc-600 dark:text-zinc-300">
+                              {sourceLabel(doc)}
+                            </p>
+                            <p className="mt-1 text-zinc-500 line-clamp-3">
+                              {doc.pageContent}
+                            </p>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
                 </div>
               </div>
             ))
           )}
+          {isSending && (
+            <div className="flex justify-start">
+              <div className="rounded-lg px-4 py-2 text-sm bg-zinc-100 dark:bg-zinc-800 text-zinc-500 animate-pulse">
+                Thinking...
+              </div>
+            </div>
+          )}
+          <div ref={bottomRef} />
         </div>
 
         <form
@@ -231,9 +317,10 @@ export default function Home() {
           />
           <button
             type="submit"
-            className="rounded-lg bg-purple-700 px-5 py-2 text-sm font-medium text-white hover:bg-purple-800"
+            disabled={isSending || !input.trim()}
+            className="rounded-lg bg-purple-700 px-5 py-2 text-sm font-medium text-white hover:bg-purple-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Send
+            {isSending ? "Sending..." : "Send"}
           </button>
         </form>
       </section>
