@@ -45,6 +45,63 @@ app.post("/upload/pdf", upload.single("pdf"), async (req, res) => {
   return res.json({ message: "uploaded" });
 });
 
+
+app.get('/chat', async (req, res) => {
+  const userQuery = req.query.message;
+
+  const embeddings = createEmbeddings();
+
+  const vectorStore = await QdrantVectorStore.fromExistingCollection(embeddings, {
+    client: qdrantClient,
+    collectionName: COLLECTION_NAME,
+  });
+  const ret = vectorStore.asRetriever({
+    k: 2,
+  });
+  // You might want to use the retriever to get relevant documents for the user query
+  const results = await ret.getRelevantDocuments(userQuery);
+
+
+  const SYSTEM_PROMPT = `
+  You are helpful AI Assistant who answers the user query based on the available context from PDF File.
+  Context:
+  ${JSON.stringify(results)}
+  `;
+
+  const chatResult = await client.chat.completions.create({
+    model: 'gemini-1',
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content: userQuery },
+    ],
+  });
+
+  return res.json({
+    message: chatResult.choices[0].message.content,
+    docs: results,
+  });
+});
+
+function createEmbeddings() {
+  // Gemini via its OpenAI-compatible endpoint
+  if (process.env.GEMINI_API_KEY) {
+    return new OpenAIEmbeddings({
+      model: process.env.EMBEDDING_MODEL ?? "gemini-embedding-001",
+      apiKey: process.env.GEMINI_API_KEY,
+      configuration: {
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+      },
+      encodingFormat: "float",
+      batchSize: 100,
+    });
+  }
+  throw new Error(
+    "No embeddings API key found. Set GEMINI_API_KEY or OPENAI_API_KEY in server/.env"
+  );
+}
+
+
+
 app.listen(port, () => {
   console.log(`Server is running on http://localhost:${port}`);
 });

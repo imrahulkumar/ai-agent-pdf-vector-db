@@ -32,12 +32,6 @@ function createEmbeddings() {
       batchSize: 100,
     });
   }
-  if (process.env.OPENAI_API_KEY) {
-    return new OpenAIEmbeddings({
-      model: process.env.EMBEDDING_MODEL ?? "text-embedding-3-small",
-      apiKey: process.env.OPENAI_API_KEY,
-    });
-  }
   throw new Error(
     "No embeddings API key found. Set GEMINI_API_KEY or OPENAI_API_KEY in server/.env"
   );
